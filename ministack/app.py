@@ -261,6 +261,7 @@ SERVICE_REGISTRY = {
     "codebuild": {"module": "codebuild"},
     "cognito-identity": {"module": "cognito"},
     "cognito-idp": {"module": "cognito"},
+    "documentdb": {"module": "documentdb"},
     "dynamodb": {"module": "dynamodb"},
     "dynamodbstreams": {"module": "dynamodb_streams"},
     "ec2": {"module": "ec2"},

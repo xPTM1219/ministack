@@ -61,6 +61,10 @@ SERVICE_PATTERNS = {
         "target_prefixes": ["DynamoDB_20120810"],
         "host_patterns": [r"dynamodb\."],
     },
+    "documentdb": {
+        "target_prefixes": ["AmazonRDS", "DocDB"],
+        "host_patterns": [r"docdb\.", r"documentdb\."],
+    },
     "lambda": {
         "path_patterns": [
             r"^/2015-03-31/",
