@@ -334,7 +334,7 @@ _state_map = {
     "cloudwatch_logs": "cloudwatch_logs", "kinesis": "kinesis",
     "ec2": "ec2", "route53": "route53", "cognito": "cognito",
     "ecr": "ecr", "cloudwatch": "cloudwatch", "s3": "s3",
-    "lambda": "lambda_svc", "rds": "rds", "ecs": "ecs",
+    "lambda": "lambda_svc",     "rds": "rds", "documentdb": "documentdb", "ecs": "ecs",
     "elasticache": "elasticache", "appsync": "appsync",
     "appsync_events": "appsync_events",
     "stepfunctions": "stepfunctions", "alb": "alb",
@@ -392,11 +392,11 @@ BANNER = r"""
  |_|  |_|_|_| |_|_|____/ \__\__,_|\___|_|\_\
 
  Local AWS Service Emulator — Port {port}
-  Services: S3, SQS, SNS, DynamoDB, Lambda, IAM, STS, SecretsManager, CloudWatch Logs,
-           SSM, EventBridge, Kinesis, CloudWatch, SES, SES v2, ACM, WAF v2, Step Functions,
-           ECS, RDS, ElastiCache, Glue, Athena, API Gateway, Firehose, Route53,
-           Cognito, EC2, EMR, EBS, EFS, ALB/ELBv2, CloudFormation, KMS, ECR, CloudFront,
-           AppSync, Cloud Map, S3 Files, RDS Data API, CodeBuild, AppConfig, Transfer, EKS,
+ Services: S3, SQS, SNS, DynamoDB, Lambda, IAM, STS, SecretsManager, CloudWatch Logs,
+          SSM, EventBridge, Kinesis, CloudWatch, SES, SES v2, ACM, WAF v2, Step Functions,
+          ECS, RDS, DocumentDB, ElastiCache, Glue, Athena, API Gateway, Firehose, Route53,
+          Cognito, EC2, EMR, EBS, EFS, ALB/ELBv2, CloudFormation, KMS, ECR, CloudFront,
+          AppSync, Cloud Map, S3 Files, RDS Data API, CodeBuild, AppConfig, Transfer, EKS,
            Inspector2, IoT Core
 """
 
