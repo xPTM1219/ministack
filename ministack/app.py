@@ -397,7 +397,7 @@ BANNER = r"""
           ECS, RDS, DocumentDB, ElastiCache, Glue, Athena, API Gateway, Firehose, Route53,
           Cognito, EC2, EMR, EBS, EFS, ALB/ELBv2, CloudFormation, KMS, ECR, CloudFront,
           AppSync, Cloud Map, S3 Files, RDS Data API, CodeBuild, AppConfig, Transfer, EKS,
-           Inspector2, IoT Core
+          Inspector2, IoT Core
 """
 
 
