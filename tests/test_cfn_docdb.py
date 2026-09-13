@@ -1,7 +1,7 @@
 """CloudFormation + CDK support for AWS::DocDB::* resources.
 
 Covers the two layers CDK deployments exercise:
-- ``engine._resolve_dynamic_refs`` — CDK L2 assembles
+- ``engine._resolve_dynamic_reference(s)`` — CDK L2 assembles
   ``{{resolve:secretsmanager:...:SecretString:<key>::}}`` placeholders inside
   Fn::Join, so they resolve in a second pass after intrinsics.
 - The DocDB provisioners — DBCluster/DBInstance/SubnetGroup/ParameterGroup and
@@ -20,7 +20,10 @@ import pytest
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from ministack.services.cloudformation.engine import _resolve_dynamic_refs
+from ministack.services.cloudformation.engine import (
+    _resolve_dynamic_reference,
+    _resolve_dynamic_references,
+)
 
 
 def _endpoint():
@@ -97,7 +100,8 @@ def test_dynref_bare_form_returns_whole_secret():
                             "Stages": ["AWSCURRENT"]}},
     }
     try:
-        assert _resolve_dynamic_refs("{{resolve:secretsmanager:plain-secret}}") == "the-whole-string"
+        assert _resolve_dynamic_reference(
+            "{{resolve:secretsmanager:plain-secret}}") == "the-whole-string"
     finally:
         sm._secrets.pop("plain-secret", None)
 
@@ -117,15 +121,15 @@ def test_dynref_secretstring_key_with_arn():
     }
     try:
         ref = f"{{{{resolve:secretsmanager:{arn}:SecretString:password::}}}}"
-        assert _resolve_dynamic_refs(ref) == "s3cret"
+        assert _resolve_dynamic_reference(ref) == "s3cret"
         ref2 = f"{{{{resolve:secretsmanager:{arn}:SecretString:username::}}}}"
-        assert _resolve_dynamic_refs(ref2) == "docdbadmin"
+        assert _resolve_dynamic_reference(ref2) == "docdbadmin"
     finally:
         sm._secrets.pop("docdb-master-AbCdEf", None)
 
 
 def test_dynref_inside_structure_and_caching():
-    """Refs resolve inside nested structures and one secret is read once."""
+    """Refs resolve inside nested structures and one literal is read once."""
     from ministack.services import secretsmanager as sm
     sm._secrets["struct-secret"] = {
         "ARN": "arn:test", "Name": "struct-secret", "DeletedDate": None,
@@ -135,24 +139,26 @@ def test_dynref_inside_structure_and_caching():
     calls = []
     real = sm.resolve_secret_string
 
-    def counting(sid, **kw):
-        calls.append(sid)
-        return real(sid, **kw)
+    def counting(*args, **kw):
+        calls.append(args[0])
+        return real(*args, **kw)
 
     try:
         sm.resolve_secret_string = counting
-        cache = {}
         props = {
             "MasterUsername": "{{resolve:secretsmanager:struct-secret:SecretString:user::}}",
             "Nested": [{"Pw": "{{resolve:secretsmanager:struct-secret:SecretString:pw::}}"}],
-            "Untouched": "{{resolve:ssm:/some/param}}",
         }
-        out = _resolve_dynamic_refs(props, cache)
+        out, cache = _resolve_dynamic_references(props)
         assert out["MasterUsername"] == "admin"
         assert out["Nested"][0]["Pw"] == "x"
-        assert out["Untouched"] == "{{resolve:ssm:/some/param}}"
-        # Two refs to the same secret → exactly one store read.
-        assert calls == ["struct-secret"]
+        # Each distinct literal is resolved exactly once.
+        assert sorted(cache) == sorted({props["MasterUsername"], props["Nested"][0]["Pw"]})
+        assert calls == ["struct-secret", "struct-secret"]
+        # A prior deployment's cache satisfies the pass without store reads.
+        n = len(calls)
+        _resolve_dynamic_references(props, cache, reuse_secrets=True)
+        assert len(calls) == n
     finally:
         sm.resolve_secret_string = real
         sm._secrets.pop("struct-secret", None)
@@ -165,21 +171,37 @@ def test_dynref_missing_key_raises():
         "Versions": {"v1": {"SecretString": "{}", "Stages": ["AWSCURRENT"]}},
     }
     try:
-        with pytest.raises(ValueError, match="not.*found.*in secret"):
-            _resolve_dynamic_refs(
+        with pytest.raises(ValueError, match="not found in the secret"):
+            _resolve_dynamic_reference(
                 "{{resolve:secretsmanager:tiny-secret:SecretString:nope::}}")
     finally:
         sm._secrets.pop("tiny-secret", None)
 
 
 def test_dynref_missing_secret_raises():
-    with pytest.raises(ValueError, match="could not resolve secret"):
-        _resolve_dynamic_refs("{{resolve:secretsmanager:no-such-secret-xyz}}")
+    with pytest.raises(ValueError, match="could not be resolved: secret"):
+        _resolve_dynamic_reference("{{resolve:secretsmanager:no-such-secret-xyz}}")
 
 
-def test_dynref_unknown_service_untouched():
-    val = {"A": "{{resolve:ssm:my-param}}"}
-    assert _resolve_dynamic_refs(val)["A"] == "{{resolve:ssm:my-param}}"
+def test_dynref_ssm_service_resolves_too():
+    """The same pass resolves ssm references; unsupported services are
+    refused at CreateStack time by the template pre-flight."""
+    from ministack.services import ssm as ssm_svc
+    record = {
+        "Name": "/docdb/dynref", "Value": "param-value",
+        "OriginalValue": "param-value", "Type": "String", "KeyId": "",
+        "Version": 1, "ARN": "arn:aws:ssm:us-east-1:000000000000:parameter/docdb/dynref",
+        "LastModifiedDate": 0, "DataType": "text", "Description": "",
+        "Tier": "Standard", "AllowedPattern": "", "Policies": [], "Labels": [],
+    }
+    ssm_svc._parameters["/docdb/dynref"] = record
+    try:
+        val = {"A": "{{resolve:ssm:/docdb/dynref}}"}
+        out, _ = _resolve_dynamic_references(val)
+        assert out["A"] == "param-value"
+    finally:
+        ssm_svc._parameters._data.pop(
+            (ssm_svc.get_account_id(), ssm_svc.get_region(), "/docdb/dynref"), None)
 
 
 # ---------------------------------------------------------------------------

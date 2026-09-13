@@ -3001,6 +3001,18 @@ def _cluster_xml(c):
     db_name = c.get("DatabaseName")
     db_name_xml = f"<DatabaseName>{db_name}</DatabaseName>" if db_name else ""
 
+    # AWS emits <MasterUserSecret> only for clusters with a managed master
+    # user password (CDK's ManageMasterUserPassword / MasterUserSecretArn).
+    master_user_secret = c.get("MasterUserSecret")
+    master_user_secret_xml = ""
+    if master_user_secret:
+        master_user_secret_xml = (
+            "<MasterUserSecret>"
+            f"<SecretArn>{master_user_secret.get('SecretArn', '')}</SecretArn>"
+            f"<SecretStatus>{master_user_secret.get('SecretStatus', 'active')}</SecretStatus>"
+            "</MasterUserSecret>"
+        )
+
     return f"""<DBClusterIdentifier>{c['DBClusterIdentifier']}</DBClusterIdentifier>
         <DBClusterArn>{c['DBClusterArn']}</DBClusterArn>
         <Engine>{c['Engine']}</Engine>
@@ -3008,6 +3020,7 @@ def _cluster_xml(c):
         <EngineMode>{c.get('EngineMode', 'provisioned')}</EngineMode>
         <Status>{c['Status']}</Status>
         <MasterUsername>{c.get('MasterUsername', 'root')}</MasterUsername>
+        {master_user_secret_xml}
         {db_name_xml}
         <Endpoint>{c.get('Endpoint', '')}</Endpoint>
         <ReaderEndpoint>{c.get('ReaderEndpoint', '')}</ReaderEndpoint>
